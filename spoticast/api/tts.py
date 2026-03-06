@@ -7,8 +7,6 @@ from google.genai import types
 
 from spoticast.config import settings
 
-_client: genai.Client | None = None
-
 # Speaker name and voice for each host role.
 # Charon (Informative) suits the analytical HOST_A; Aoede (Breezy) fits the intuitive HOST_B.
 _VOICE_MAP = {
@@ -16,20 +14,28 @@ _VOICE_MAP = {
     "HOST_B": ("Sam", "Aoede"),
 }
 
+_client_kwargs: dict | None = None
 
-def _get_client() -> genai.Client:
-    global _client
-    if _client is None:
-        if settings.gemini_api_key:
-            _client = genai.Client(api_key=settings.gemini_api_key)
-        else:
-            import google.auth
-            project = settings.google_cloud_project
-            if not project:
-                _, project = google.auth.default()
-            # TTS models require a regional endpoint, not "global"
-            _client = genai.Client(vertexai=True, project=project, location="us-central1")
-    return _client
+
+def _resolve_client_kwargs() -> dict:
+    global _client_kwargs
+    if _client_kwargs is not None:
+        return _client_kwargs
+    if settings.gemini_api_key:
+        _client_kwargs = {"api_key": settings.gemini_api_key}
+    else:
+        import google.auth
+        project = settings.google_cloud_project
+        if not project:
+            _, project = google.auth.default()
+        # TTS models require a regional endpoint, not "global"
+        _client_kwargs = {"vertexai": True, "project": project, "location": "us-central1"}
+    return _client_kwargs
+
+
+def _new_client() -> genai.Client:
+    """Return a fresh genai.Client each call to avoid httpx closed-client errors."""
+    return genai.Client(**_resolve_client_kwargs())
 
 
 def synthesize_dialogue(lines: list[dict]) -> bytes:
@@ -39,7 +45,7 @@ def synthesize_dialogue(lines: list[dict]) -> bytes:
     Returns raw PCM bytes: 16-bit signed, 24kHz, mono.
     The model handles natural pacing and speaker transitions.
     """
-    client = _get_client()
+    client = _new_client()
 
     # Format the dialogue so the model knows which speaker says each line.
     # Speaker names must match the keys in speaker_voice_configs below.

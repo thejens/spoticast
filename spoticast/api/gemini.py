@@ -13,26 +13,34 @@ from spoticast.config import settings
 
 _CACHE_PREFIX = "gemini"
 
-_client: genai.Client | None = None
+# Resolved once at first call; reused to build fresh clients on every request.
+# Avoids the httpx "client has been closed" error that occurs when a singleton
+# genai.Client is reused across thread-pool executor invocations.
+_client_kwargs: dict | None = None
 
 
-def _get_client() -> genai.Client:
-    global _client
-    if _client is not None:
-        return _client
+def _resolve_client_kwargs() -> dict:
+    global _client_kwargs
+    if _client_kwargs is not None:
+        return _client_kwargs
     if settings.gemini_api_key:
-        _client = genai.Client(api_key=settings.gemini_api_key)
+        _client_kwargs = {"api_key": settings.gemini_api_key}
     else:
         import google.auth
         project = settings.google_cloud_project
         if not project:
             _, project = google.auth.default()
-        _client = genai.Client(
-            vertexai=True,
-            project=project,
-            location=settings.google_cloud_location,
-        )
-    return _client
+        _client_kwargs = {
+            "vertexai": True,
+            "project": project,
+            "location": settings.google_cloud_location,
+        }
+    return _client_kwargs
+
+
+def _new_client() -> genai.Client:
+    """Return a fresh genai.Client each call to avoid httpx closed-client errors."""
+    return genai.Client(**_resolve_client_kwargs())
 
 
 _SYSTEM_PROMPT = """You are a brilliant, deeply knowledgeable music podcast duo:
@@ -317,7 +325,7 @@ def generate_episode_name(context: dict[str, Any]) -> str:
         "Output ONLY the title, nothing else."
     )
 
-    response = _get_client().models.generate_content(
+    response = _new_client().models.generate_content(
         model=settings.gemini_research_model,
         contents=prompt,
     )
@@ -334,7 +342,7 @@ def generate_script(context: dict[str, Any]) -> dict:
     if cached is not None:
         return cached
 
-    response = _get_client().models.generate_content(
+    response = _new_client().models.generate_content(
         model=settings.gemini_model,
         contents=build_prompt(context),
         config=types.GenerateContentConfig(
