@@ -5,7 +5,10 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from uuid_extensions import uuid7
+try:
+    from uuid import uuid7  # type: ignore[attr-defined]  # Python 3.14+
+except ImportError:
+    from uuid_extensions import uuid7
 
 logger = logging.getLogger(__name__)
 from pathlib import Path
