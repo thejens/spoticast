@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import uuid
+from uuid_extensions import uuid7
 
 logger = logging.getLogger(__name__)
 from pathlib import Path
@@ -179,7 +179,7 @@ async def generate(req: GenerateRequest):
     if not req.playlist_uri and not req.track_uris:
         raise HTTPException(status_code=400, detail="Provide playlist_uri or track_uris")
 
-    job_id = str(uuid.uuid4())
+    job_id = str(uuid7())
     source = req.playlist_uri or "track_list"
     job = Job(job_id, source)
     job.track_uris = req.track_uris

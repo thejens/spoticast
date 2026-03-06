@@ -20,6 +20,7 @@ dependencies = [
     "httpx>=0.28.0",
     "sse-starlette>=2.1.0",
     "audioop-lts>=0.2.2",
+    "uuid7>=0.1.0",
 ]
 
 [project.scripts]
