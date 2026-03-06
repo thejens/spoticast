@@ -325,7 +325,8 @@ async def generate_episode_name(context: dict[str, Any]) -> str:
         "Output ONLY the title, nothing else."
     )
 
-    response = await _new_client().aio.models.generate_content(
+    client = _new_client()
+    response = await client.aio.models.generate_content(
         model=settings.gemini_research_model,
         contents=prompt,
     )
@@ -342,7 +343,8 @@ async def generate_script(context: dict[str, Any]) -> dict:
     if cached is not None:
         return cached
 
-    response = await _new_client().aio.models.generate_content(
+    client = _new_client()
+    response = await client.aio.models.generate_content(
         model=settings.gemini_model,
         contents=build_prompt(context),
         config=types.GenerateContentConfig(

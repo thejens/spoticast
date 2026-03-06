@@ -67,7 +67,8 @@ async def synthesize_dialogue(lines: list[dict]) -> bytes:
         for _host, (name, voice) in _VOICE_MAP.items()
     ]
 
-    response = await _new_client().aio.models.generate_content(
+    client = _new_client()
+    response = await client.aio.models.generate_content(
         model="gemini-2.5-flash-tts",
         contents=prompt,
         config=types.GenerateContentConfig(
