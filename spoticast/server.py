@@ -297,8 +297,8 @@ async def _run_generation(job: Job):
         context["playlist_name"] = job.playlist_name
 
         script, episode_name = await asyncio.gather(
-            loop.run_in_executor(None, claude_api.generate_script, context),
-            loop.run_in_executor(None, claude_api.generate_episode_name, context),
+            claude_api.generate_script(context),
+            claude_api.generate_episode_name(context),
         )
 
         job.push("progress", {"step": "tts", "message": "Synthesizing intro audio..."})
@@ -308,9 +308,7 @@ async def _run_generation(job: Job):
 
         # --- Synthesize intro, then start streaming immediately ---
         intro_file = f"{ep_dir}/intro.mp3"
-        intro_pcm = await loop.run_in_executor(
-            None, tts_api.synthesize_dialogue, script["intro"]
-        )
+        intro_pcm = await tts_api.synthesize_dialogue(script["intro"])
         await loop.run_in_executor(
             None, audio_api.assemble_commentary, intro_pcm, intro_file
         )
@@ -326,9 +324,7 @@ async def _run_generation(job: Job):
             })
 
             commentary_file = f"{ep_dir}/track_{i:03d}_commentary.mp3"
-            pcm = await loop.run_in_executor(
-                None, tts_api.synthesize_dialogue, track_script["commentary"]
-            )
+            pcm = await tts_api.synthesize_dialogue(track_script["commentary"])
             await loop.run_in_executor(
                 None, audio_api.assemble_commentary, pcm, commentary_file
             )
@@ -346,9 +342,7 @@ async def _run_generation(job: Job):
         # --- Synthesize outro ---
         if script.get("outro"):
             job.push("progress", {"step": "tts", "message": "Synthesizing outro..."})
-            outro_pcm = await loop.run_in_executor(
-                None, tts_api.synthesize_dialogue, script["outro"]
-            )
+            outro_pcm = await tts_api.synthesize_dialogue(script["outro"])
             await loop.run_in_executor(
                 None, audio_api.assemble_commentary, outro_pcm, "outro.mp3"
             )

@@ -38,15 +38,13 @@ def _new_client() -> genai.Client:
     return genai.Client(**_resolve_client_kwargs())
 
 
-def synthesize_dialogue(lines: list[dict]) -> bytes:
+async def synthesize_dialogue(lines: list[dict]) -> bytes:
     """
     Synthesize a full multi-speaker dialogue in one API call.
 
     Returns raw PCM bytes: 16-bit signed, 24kHz, mono.
     The model handles natural pacing and speaker transitions.
     """
-    client = _new_client()
-
     # Format the dialogue so the model knows which speaker says each line.
     # Speaker names must match the keys in speaker_voice_configs below.
     dialogue_parts = []
@@ -69,7 +67,7 @@ def synthesize_dialogue(lines: list[dict]) -> bytes:
         for _host, (name, voice) in _VOICE_MAP.items()
     ]
 
-    response = client.models.generate_content(
+    response = await _new_client().aio.models.generate_content(
         model="gemini-2.5-flash-tts",
         contents=prompt,
         config=types.GenerateContentConfig(

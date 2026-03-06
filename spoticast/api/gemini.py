@@ -300,7 +300,7 @@ Generate the complete podcast script including the outro. Make the per-track com
 """
 
 
-def generate_episode_name(context: dict[str, Any]) -> str:
+async def generate_episode_name(context: dict[str, Any]) -> str:
     """
     Generate a short, evocative podcast episode title from the playlist context.
 
@@ -325,14 +325,14 @@ def generate_episode_name(context: dict[str, Any]) -> str:
         "Output ONLY the title, nothing else."
     )
 
-    response = _new_client().models.generate_content(
+    response = await _new_client().aio.models.generate_content(
         model=settings.gemini_research_model,
         contents=prompt,
     )
     return response.text.strip().strip("\"'")
 
 
-def generate_script(context: dict[str, Any]) -> dict:
+async def generate_script(context: dict[str, Any]) -> dict:
     """Call Gemini and return the parsed script JSON."""
     # Cache key: sorted track URIs + Last.fm username (identifies playlist + listener)
     track_uris = sorted(t["uri"] for t in context["tracks"])
@@ -342,7 +342,7 @@ def generate_script(context: dict[str, Any]) -> dict:
     if cached is not None:
         return cached
 
-    response = _new_client().models.generate_content(
+    response = await _new_client().aio.models.generate_content(
         model=settings.gemini_model,
         contents=build_prompt(context),
         config=types.GenerateContentConfig(
