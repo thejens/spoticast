@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spoticast</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/web/styles.css">
+</head>
+<body>
+
+  <!-- Fixed header -->
+  <header class="header">
+    <div class="logo">Spoti<span>cast</span></div>
+    <div class="on-air-badge" id="on-air-badge">
+      <div class="on-air-dot"></div>
+      On Air
+    </div>
+  </header>
+
+  <div id="app">
+
+    <!-- ════════════════════════════════════
+         STATE: LANDING (not authenticated)
+         ════════════════════════════════════ -->
+    <div class="state" id="state-landing">
+      <div class="landing-hero">
+
+        <!-- Decorative waveform -->
+        <div class="landing-waveform" aria-hidden="true">
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+          <div class="landing-waveform-bar"></div>
+        </div>
+
+        <h1 class="landing-title">Your playlist,<br><em>reimagined</em></h1>
+        <p class="landing-tagline">AI podcast commentary · Two hosts · Your music</p>
+
+        <div class="landing-features">
+          <div class="landing-feature">
+            <span class="landing-feature-icon">🎙</span>
+            <span>Two AI hosts discuss your taste</span>
+          </div>
+          <div class="landing-feature">
+            <span class="landing-feature-icon">🎵</span>
+            <span>DJ intros before each track</span>
+          </div>
+          <div class="landing-feature">
+            <span class="landing-feature-icon">✨</span>
+            <span>Powered by Claude &amp; Spotify</span>
+          </div>
+        </div>
+
+        <a href="/auth/spotify" class="btn btn-primary">Connect Spotify</a>
+
+        <p class="landing-prereq">
+          Requires Spotify Premium · ffmpeg must be installed (<code>brew install ffmpeg</code>)
+        </p>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════
+         STATE: CONNECTED (show form + library)
+         ════════════════════════════════════ -->
+    <div class="state" id="state-connected">
+
+      <div class="connected-header">
+        <h2 class="connected-title">What are we listening to?</h2>
+        <p class="connected-sub">Paste a Spotify playlist link or URI</p>
+      </div>
+
+      <!-- Last.fm connection widget — hidden until server confirms API keys are present -->
+      <div class="service-row" id="lastfm-widget" style="display:none">
+        <div class="service-pill" id="lastfm-connected" style="display:none">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <circle cx="7" cy="7" r="7" fill="#d51007"/>
+            <text x="7" y="10.5" text-anchor="middle" font-size="8" fill="white" font-family="sans-serif" font-weight="bold">lfm</text>
+          </svg>
+          <span id="lastfm-pill-label">Last.fm</span>
+          <button class="service-pill-action" id="lastfm-disconnect-btn" type="button">disconnect</button>
+        </div>
+
+        <div class="service-connect" id="lastfm-disconnected">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true" opacity="0.4">
+            <circle cx="7" cy="7" r="7" fill="#d51007"/>
+            <text x="7" y="10.5" text-anchor="middle" font-size="8" fill="white" font-family="sans-serif" font-weight="bold">lfm</text>
+          </svg>
+          <form id="lastfm-form" class="lastfm-form">
+            <input
+              id="lastfm-username"
+              class="lastfm-input"
+              type="text"
+              placeholder="Last.fm username"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button class="btn btn-ghost btn-sm" type="submit" id="lastfm-connect-btn">Connect</button>
+          </form>
+          <span class="lastfm-hint">Enriches commentary with your listening history</span>
+        </div>
+      </div>
+
+      <form class="uri-form" id="generate-form" autocomplete="off">
+        <div class="uri-input-wrap">
+          <textarea
+            class="uri-input"
+            id="playlist-uri"
+            rows="1"
+            placeholder="Paste a playlist link or tracks from Spotify"
+            autocomplete="off"
+            spellcheck="false"
+            required
+          ></textarea>
+        </div>
+        <button class="btn btn-primary" type="submit" id="generate-btn">
+          Generate Podcast
+        </button>
+      </form>
+      <p class="paste-hint">
+        To use any playlist: open it in Spotify, press <kbd>⌘A</kbd> to select all tracks, then <kbd>⌘C</kbd> and paste here.
+        Or click one of your playlists below.
+      </p>
+
+      <div class="error-msg" id="error-msg"></div>
+
+      <!-- Past episodes -->
+      <div class="library-section" id="section-episodes">
+        <h3 class="library-section-title">Past Episodes</h3>
+        <div class="episode-list" id="past-episodes"></div>
+      </div>
+
+      <!-- Recently played playlists -->
+      <div class="library-section" id="section-recent">
+        <h3 class="library-section-title">Recently Played</h3>
+        <div class="featured-shelf" id="recent-playlists"></div>
+      </div>
+
+      <!-- User playlist library -->
+      <div class="library-section" id="section-playlists">
+        <h3 class="library-section-title">Your Playlists <span class="library-section-sub">playlists you own</span></h3>
+        <div class="playlist-grid" id="user-playlists"></div>
+        <button class="btn btn-ghost btn-load-more" id="load-more-playlists" style="display:none">
+          Load more
+        </button>
+      </div>
+
+      <p class="sdk-warning" id="sdk-warning">
+        Spotify Premium is required for the Web Playback SDK.
+      </p>
+
+    </div>
+
+    <!-- ════════════════════════════════════
+         STATE: GENERATING
+         ════════════════════════════════════ -->
+    <div class="state" id="state-generating">
+
+      <div class="generating-header">
+        <h2 class="generating-title">Producing your episode…</h2>
+        <p class="generating-sub">This takes a couple of minutes</p>
+      </div>
+
+      <div class="progress-steps">
+
+        <div class="progress-step" id="step-fetch">
+          <div class="step-icon">·</div>
+          <div class="step-label">Fetching playlist &amp; listening history</div>
+          <div class="step-message"></div>
+        </div>
+
+        <div class="progress-step" id="step-research">
+          <div class="step-icon">·</div>
+          <div class="step-label">Researching artists &amp; songs</div>
+          <div class="step-message"></div>
+        </div>
+
+        <div class="progress-step" id="step-script">
+          <div class="step-icon">·</div>
+          <div class="step-label">Writing script</div>
+          <div class="step-message"></div>
+        </div>
+
+        <div class="progress-step" id="step-tts">
+          <div class="step-icon">·</div>
+          <div class="step-label">Synthesizing voices</div>
+          <div class="step-message"></div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ════════════════════════════════════
+         STATE: PLAYING
+         ════════════════════════════════════ -->
+    <div class="state" id="state-playing">
+
+      <!-- Segment type indicator -->
+      <div class="segment-type" id="segment-type">
+        <div class="segment-type-dot"></div>
+        <span class="segment-type-label"></span>
+      </div>
+
+      <!-- Now playing -->
+      <div class="now-playing">
+        <div class="now-playing-title" id="now-playing-title">Spoticast</div>
+        <div class="now-playing-artist" id="now-playing-artist">Starting…</div>
+      </div>
+
+      <!-- Waveform visualizer -->
+      <div class="waveform-container">
+        <div class="waveform paused" id="waveform" aria-hidden="true">
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+          <div class="waveform-bar"></div>
+        </div>
+
+        <!-- Next up -->
+        <div class="next-up" id="next-up"></div>
+      </div>
+
+      <!-- Playback controls -->
+      <div class="playback-controls">
+        <button class="skip-btn" id="skip-btn" title="Skip to next segment">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M4 4l8 6-8 6V4z" fill="currentColor"/>
+            <rect x="14" y="4" width="2.5" height="12" rx="1" fill="currentColor"/>
+          </svg>
+          Skip
+        </button>
+      </div>
+
+      <!-- Episode progress bar -->
+      <div class="episode-progress">
+        <div class="progress-meta">
+          <span>Episode Progress</span>
+          <span id="progress-label">–</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Attribution -->
+      <div class="attribution">Commentary by Claude · Music by Spotify</div>
+
+    </div>
+
+  </div><!-- /app -->
+
+  <!-- Hidden audio element for commentary playback -->
+  <audio id="spoticast-audio" preload="auto"></audio>
+
+  <script src="/web/player.js"></script>
+
+</body>
+</html>

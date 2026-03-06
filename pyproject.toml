@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "spoticast"
+version = "0.1.0"
+description = "AI-powered podcast commentary for Spotify playlists"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "spotipy>=2.24.0",
+    "pylast>=5.3.0",
+    "google-cloud-aiplatform>=1.60.0",
+    "google-genai>=1.0.0",
+    "pydub>=0.25.1",
+    "pydantic-settings>=2.6.0",
+    "python-dotenv>=1.0.0",
+    "httpx>=0.28.0",
+    "sse-starlette>=2.1.0",
+    "audioop-lts>=0.2.2",
+]
+
+[project.scripts]
+spoticast = "spoticast.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["spoticast"]
