@@ -6,20 +6,20 @@ recording stories, reviews, and cultural context for each artist and track.
 
 Features:
   - Google Search grounding: Gemini searches the web for real, current information
+  - Thinking budget: flash-lite runs with thinking_level="low" for better reasoning
   - Parallel batching: artists and songs researched concurrently
   - Persistent disk cache in .research_cache/research/
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable
 
 import google.auth
-import vertexai
-from vertexai.generative_models import GenerationConfig, GenerativeModel, Tool
-from vertexai.generative_models._generative_models import gapic_tool_types as _gapic
+from google import genai
+from google.genai import types
 
 from spoticast import cache
 from spoticast.config import settings
@@ -27,41 +27,39 @@ from spoticast.config import settings
 logger = logging.getLogger(__name__)
 
 _CACHE_PREFIX = "research"
-_MAX_WORKERS = 4
-_initialized = False
+_MAX_CONCURRENT = 4
+
+_client_kwargs: dict | None = None
+_SEARCH_TOOL = types.Tool(google_search=types.GoogleSearch())
 
 
-def _ensure_init():
-    global _initialized
-    if _initialized:
-        return
-    project = settings.google_cloud_project
-    if not project:
-        _, project = google.auth.default()
-    vertexai.init(project=project, location=settings.google_cloud_location)
-    _initialized = True
+def _resolve_client_kwargs() -> dict:
+    global _client_kwargs
+    if _client_kwargs is not None:
+        return _client_kwargs
+    if settings.gemini_api_key:
+        _client_kwargs = {"api_key": settings.gemini_api_key}
+    else:
+        project = settings.google_cloud_project
+        if not project:
+            _, project = google.auth.default()
+        _client_kwargs = {"vertexai": True, "project": project, "location": "global"}
+    return _client_kwargs
 
 
-def _get_model() -> GenerativeModel:
-    _ensure_init()
-    return GenerativeModel(settings.gemini_research_model)
+def _new_client() -> genai.Client:
+    return genai.Client(**_resolve_client_kwargs())
 
 
-# Use google_search (not google_search_retrieval) — required by newer Gemini models on Vertex AI
-_SEARCH_TOOL = Tool._from_gapic(raw_tool=_gapic.Tool(google_search=_gapic.Tool.GoogleSearch()))
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Grounded research via Gemini
-# ─────────────────────────────────────────────────────────────────────────────
-
-def _grounded_query(prompt: str, max_output_tokens: int = 1500) -> str:
+async def _grounded_query(prompt: str, max_output_tokens: int = 1500) -> str:
     """Run a single grounded Gemini query and return the text response."""
-    model = _get_model()
-    response = model.generate_content(
-        prompt,
-        tools=[_SEARCH_TOOL],
-        generation_config=GenerationConfig(
+    client = _new_client()
+    response = await client.aio.models.generate_content(
+        model=settings.gemini_research_model,
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            tools=[_SEARCH_TOOL],
+            thinking_config=types.ThinkingConfig(thinking_level="low"),
             max_output_tokens=max_output_tokens,
             temperature=0.3,
         ),
@@ -69,11 +67,11 @@ def _grounded_query(prompt: str, max_output_tokens: int = 1500) -> str:
     return response.text.strip() if response.text else ""
 
 
-# Cache artist origin lookups separately — they're reused across song research
+# Cache artist origin lookups separately — reused across song/album research
 _origin_cache: dict[str, str] = {}
 
 
-def _get_artist_origin(artist_name: str) -> str:
+async def _get_artist_origin(artist_name: str) -> str:
     """
     Quick grounded lookup to establish an artist's country and native language.
 
@@ -85,7 +83,7 @@ def _get_artist_origin(artist_name: str) -> str:
         return _origin_cache[artist_name]
 
     try:
-        origin = _grounded_query(
+        origin = await _grounded_query(
             f'What country is the musical artist "{artist_name}" from, and what is their native language? '
             f"Reply in exactly this format (one line): Country: X | Language: X | Native name: X "
             f"(native name = how the artist's name or their country is written in the native script/language, "
@@ -99,14 +97,14 @@ def _get_artist_origin(artist_name: str) -> str:
     return origin
 
 
-def _research_artist(artist_name: str) -> dict:
+async def _research_artist(artist_name: str) -> dict:
     """Research an artist using Gemini + Google Search. Returns cached result if available."""
     key = cache.cache_key("artist_v3", artist_name)
     cached = cache.get(_CACHE_PREFIX, key)
     if cached is not None:
         return cached
 
-    origin = _get_artist_origin(artist_name)
+    origin = await _get_artist_origin(artist_name)
     native_lang_instruction = (
         f"The artist's origin: {origin}\n"
         f"Issue searches in BOTH English AND the native language shown above — you need both.\n"
@@ -137,7 +135,7 @@ Do NOT pad with generic statements. If you can't find much, keep it short."""
 
     result: dict = {"name": artist_name, "origin": origin, "research": ""}
     try:
-        text = _grounded_query(prompt)
+        text = await _grounded_query(prompt)
         if text:
             result["research"] = text
     except Exception as exc:
@@ -149,7 +147,7 @@ Do NOT pad with generic statements. If you can't find much, keep it short."""
     return result
 
 
-def _research_song(artist_name: str, song_title: str, spotify_track_id: str) -> dict:
+async def _research_song(artist_name: str, song_title: str, spotify_track_id: str) -> dict:
     """Research a song using Gemini + Google Search. Keyed by Spotify track ID."""
     key = cache.cache_key("song_v3", spotify_track_id)
     cached = cache.get(_CACHE_PREFIX, key)
@@ -159,7 +157,7 @@ def _research_song(artist_name: str, song_title: str, spotify_track_id: str) -> 
     primary = artist_name.split(",")[0].strip()
 
     # Reuse origin from artist research if already fetched (likely warm from parallel artist pass)
-    origin = _get_artist_origin(primary)
+    origin = await _get_artist_origin(primary)
     native_lang_instruction = (
         f"The artist's origin: {origin}\n"
         f"Issue searches for this song in BOTH English AND the artist's native language — you need both.\n"
@@ -191,7 +189,7 @@ Focus on specific facts and quotes. Keep it short if there isn't much to find.""
         "research": "",
     }
     try:
-        text = _grounded_query(prompt)
+        text = await _grounded_query(prompt)
         if text:
             result["research"] = text
     except Exception as exc:
@@ -203,7 +201,7 @@ Focus on specific facts and quotes. Keep it short if there isn't much to find.""
     return result
 
 
-def _research_album(artist_name: str, album_title: str) -> dict:
+async def _research_album(artist_name: str, album_title: str) -> dict:
     """Research an album using Gemini + Google Search. Keyed by artist + album title."""
     key = cache.cache_key("album_v1", artist_name, album_title)
     cached = cache.get(_CACHE_PREFIX, key)
@@ -211,7 +209,7 @@ def _research_album(artist_name: str, album_title: str) -> dict:
         return cached
 
     primary = artist_name.split(",")[0].strip()
-    origin = _get_artist_origin(primary)
+    origin = await _get_artist_origin(primary)
     native_lang_instruction = (
         f"The artist's origin: {origin}\n"
         f"Issue searches in BOTH English AND the artist's native language — you need both.\n"
@@ -239,7 +237,7 @@ Focus on specific facts, quotes, and stories. Keep it short if there isn't much 
 
     result: dict = {"artist": artist_name, "album": album_title, "research": ""}
     try:
-        text = _grounded_query(prompt, max_output_tokens=2000)
+        text = await _grounded_query(prompt, max_output_tokens=2000)
         if text:
             result["research"] = text
     except Exception as exc:
@@ -254,19 +252,10 @@ Focus on specific facts, quotes, and stories. Keep it short if there isn't much 
 # Parallel enrichment
 # ─────────────────────────────────────────────────────────────────────────────
 
-def enrich_with_research(
+async def _enrich_async(
     context: dict[str, Any],
     progress_cb: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
-    """
-    Research all artists and songs via Gemini + Google Search grounding.
-
-    Populates:
-      - context["artist_profiles"][name]["research"]
-      - track["song_research"] for each track
-
-    Results are disk-cached so subsequent runs skip network calls.
-    """
     artist_profiles: dict[str, dict] = context.get("artist_profiles", {})
     tracks: list[dict] = context.get("tracks", [])
 
@@ -309,22 +298,23 @@ def enrich_with_research(
     if progress_cb:
         progress_cb(msg)
 
+    semaphore = asyncio.Semaphore(_MAX_CONCURRENT)
     results_by_key: dict[tuple, dict] = {}
     completed = 0
 
-    with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as pool:
-        futures = {}
-        for task_type, args in tasks:
+    async def _run(task_type: str, args: tuple) -> tuple[str, tuple, dict]:
+        async with semaphore:
             if task_type == "artist":
-                fut = pool.submit(_research_artist, *args)
+                return task_type, args, await _research_artist(*args)
             elif task_type == "song":
-                fut = pool.submit(_research_song, *args)
+                return task_type, args, await _research_song(*args)
             else:
-                fut = pool.submit(_research_album, *args)
-            futures[fut] = (task_type, args)
+                return task_type, args, await _research_album(*args)
 
-        for fut in as_completed(futures):
-            task_type, args = futures[fut]
+    coros = [_run(t, a) for t, a in tasks]
+    for fut in asyncio.as_completed(coros):
+        try:
+            task_type, args, result = await fut
             completed += 1
             if task_type == "artist":
                 label = f"artist: {args[0]}"
@@ -332,19 +322,17 @@ def enrich_with_research(
                 label = f"album: {args[1]} — {args[0]}"
             else:
                 label = f"song: {args[1]} — {args[0].split(',')[0].strip()}"
-            try:
-                result = fut.result()
-                results_by_key[(task_type, args)] = result
-                found = bool(result.get("research"))
-                status = "+" if found else "-"
-                msg = f"Research {completed}/{total}: {status} {label}"
-            except Exception as exc:
-                logger.warning("Research task failed %s %s: %s", task_type, args, exc)
-                msg = f"Research {completed}/{total}: failed — {label}"
+            results_by_key[(task_type, args)] = result
+            status = "+" if result.get("research") else "-"
+            msg = f"Research {completed}/{total}: {status} {label}"
+        except Exception as exc:
+            completed += 1
+            logger.warning("Research task failed: %s", exc)
+            msg = f"Research {completed}/{total}: failed"
 
-            logger.info("[Research] %s", msg)
-            if progress_cb:
-                progress_cb(msg)
+        logger.info("[Research] %s", msg)
+        if progress_cb:
+            progress_cb(msg)
 
     # Write results back into context
     for artist_name, profile in artist_profiles.items():
@@ -377,3 +365,19 @@ def enrich_with_research(
         progress_cb(summary)
 
     return context
+
+
+def enrich_with_research(
+    context: dict[str, Any],
+    progress_cb: Callable[[str], None] | None = None,
+) -> dict[str, Any]:
+    """
+    Research all artists and songs via Gemini + Google Search grounding.
+
+    Populates:
+      - context["artist_profiles"][name]["research"]
+      - track["song_research"] for each track
+
+    Results are disk-cached so subsequent runs skip network calls.
+    """
+    return asyncio.run(_enrich_async(context, progress_cb))

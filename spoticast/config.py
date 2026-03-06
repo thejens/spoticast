@@ -25,9 +25,9 @@ class Settings(BaseSettings):
     # GCP project for Vertex AI (only used when GEMINI_API_KEY is not set).
     # If unset, resolved automatically from Application Default Credentials.
     google_cloud_project: str | None = None
-    google_cloud_location: str = "us-central1"
-    gemini_model: str = "gemini-2.5-pro"
-    gemini_research_model: str = "gemini-2.5-flash-lite"
+    google_cloud_location: str = "global"
+    gemini_model: str = "gemini-3.1-pro-preview"
+    gemini_research_model: str = "gemini-3.1-flash-lite-preview"
 
     max_tracks: int = 30
     port: int = 8765
