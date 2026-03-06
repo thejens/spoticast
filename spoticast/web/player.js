@@ -217,11 +217,23 @@ class SpoticastPlayer {
       // intro (1) + N tracks × 2 items each
       this.totalItems = 1 + total * 2;
       this._updateProgress();
+      this._updateSkipButton();
     });
 
-    es.addEventListener('done', (e) => {
+    // Outro arrives after the last track — append to the live queue
+    es.addEventListener('outro_ready', (e) => {
+      const { url } = JSON.parse(e.data);
+      this.queue.push({ type: 'audio', url });
+      this.totalItems += 1;
+      this._updateProgress();
+      this._updateSkipButton();
+    });
+
+    es.addEventListener('done', (_e) => {
       es.close();
       this._generationComplete = true;
+      this._updateProgress();
+      this._updateSkipButton();
       // Refresh episode list so the new episode appears immediately
       this._loadEpisodes();
     });
@@ -246,6 +258,7 @@ class SpoticastPlayer {
     this.completedItems = 0;
     this._showState('playing');
     document.getElementById('on-air-badge').classList.add('active');
+    this._updateSkipButton();
     this._playNext();
   }
 
@@ -265,6 +278,7 @@ class SpoticastPlayer {
     this._trackEndFired = false;
     this.completedItems++;
     this._updateProgress();
+    this._updateSkipButton();
 
     if (item.type === 'audio') {
       this._playAudio(item);
@@ -543,8 +557,17 @@ class SpoticastPlayer {
       ? Math.round((this.completedItems / this.totalItems) * 100)
       : 0;
     document.getElementById('progress-fill').style.width = pct + '%';
+    const suffix = this._generationComplete ? '' : ' · generating…';
     document.getElementById('progress-label').textContent =
-      `${this.completedItems} / ${this.totalItems} segments`;
+      `${this.completedItems} / ${this.totalItems} segments${suffix}`;
+  }
+
+  _updateSkipButton() {
+    // Disable skip when there's nothing queued yet and more is still being synthesized.
+    // Skipping into an empty queue while generating would stall playback.
+    const blocked = this.queue.length === 0 && !this._generationComplete;
+    const btn = document.getElementById('skip-btn');
+    btn.disabled = blocked;
   }
 
   _updateProgressStep(step, message) {

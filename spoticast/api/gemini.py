@@ -84,14 +84,29 @@ INTRO (~5 minutes, 10-16 exchanges):
 - Create genuine anticipation for what's coming
 - DO NOT discuss the first track in depth — that gets its own dedicated commentary segment immediately after. You can mention it briefly at most.
 
-PER-TRACK COMMENTARY (5-8 exchanges per track, 60-120 seconds when spoken):
-- Open by naturally naming the song and artist the listener just heard — e.g. "That was [Song] by [Artist]" or woven into a reaction: "There's something about the way [Artist] ends [Song] that always gets me." Do not make it a stiff announcement; let it feel like two people coming out of the music.
-- Then transition to the NEXT track: name the specific connection (tempo, key, mood, era, artist relationship, thematic link, lyrical echo)
-- What is the NEXT song ABOUT: the lyrics, the imagery, the emotional core. Be specific — quote or paraphrase a line if it's illuminating.
-- What has the NEXT TRACK'S ARTIST said about this song? Draw on interviews, statements, and known context. Specific anecdotes beat vague praise.
-- Production story, recording context, what album it came from and why that album matters
-- Surprising trivia: a fact most listeners don't know. Something that changes how you hear the song.
-- End with something that creates anticipation for the music itself — let the song start with intention
+PER-TRACK COMMENTARY — CRITICAL STRUCTURE:
+Each commentary block plays BEFORE its track — it is a DJ intro, not a post-song recap.
+Playback order: [intro] → [track 1 commentary] → [track 1 music] → [track 2 commentary] → [track 2 music] → ...
+The track_uri in each block identifies the song that is ABOUT TO PLAY.
+
+For track 1 (the first track):
+- There is no previous track. Never say "you just heard" or reference anything before it.
+- Bridge naturally from the intro's energy into introducing this track.
+
+For tracks 2 onwards:
+- Open with a brief acknowledgement of the track that JUST FINISHED (the previous track). One or two sentences maximum — e.g. "Right after [Song]..." or woven into a transition thought. Then move on.
+- Name the specific connection to the UPCOMING track (tempo, mood, era, artist relationship, thematic link).
+
+For ALL tracks, the bulk of each block (5–7 of the 5–8 exchanges) is about the UPCOMING track:
+- What this song is ABOUT: lyrics, imagery, emotional core. Quote or paraphrase a line if illuminating.
+- What the artist has said about it — specific anecdotes beat vague praise.
+- Production story, recording context, the album and why it matters.
+- Surprising trivia: a fact that changes how you hear the song.
+- End with a line or two that lets the song begin with intention.
+
+OUTRO (4-6 exchanges, ~30-45 seconds):
+- Plays after the final track finishes.
+- A brief, warm sign-off — reflect on the playlist as a whole, one last observation or connection across the tracks, then a natural goodbye. Not sentimental, not long.
 
 USING THE DATA PROVIDED:
 - Artist bio, tags, similar artists: use as starting points for stories, not as labels to recite
@@ -137,8 +152,19 @@ _RESPONSE_SCHEMA = {
                 "required": ["track_uri", "commentary"],
             },
         },
+        "outro": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "host": {"type": "string", "enum": ["HOST_A", "HOST_B"]},
+                    "text": {"type": "string"},
+                },
+                "required": ["host", "text"],
+            },
+        },
     },
-    "required": ["intro", "tracks"],
+    "required": ["intro", "tracks", "outro"],
 }
 
 
@@ -259,10 +285,10 @@ def build_prompt(context: dict[str, Any]) -> str:
 {''.join(artist_section_lines)}
 
 ═══ PLAYLIST TRACKS (in order) ═══
-(Each track's commentary opens by naming the song/artist just heard, then pivots to the next track: what it's about, artist context, production story, surprising trivia)
+(Each track's commentary is a DJ intro that plays BEFORE its track. Track 1 has no previous track to reference. Tracks 2+ briefly acknowledge what just played, then introduce the upcoming track.)
 {track_section}
 
-Generate the complete podcast script. Make the per-track commentary genuinely rich — 5-8 exchanges, 60-120 seconds when spoken. Use the research data above as concrete talking points, not just background.
+Generate the complete podcast script including the outro. Make the per-track commentary genuinely rich — 5-8 exchanges, 60-120 seconds when spoken. Use the research data above as concrete talking points, not just background.
 """
 
 

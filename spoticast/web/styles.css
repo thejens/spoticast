@@ -887,9 +887,14 @@ body::after {
   transition: all 0.2s;
 }
 
-.skip-btn:hover {
+.skip-btn:hover:not(:disabled) {
   border-color: var(--cream-low);
   color: var(--cream-mid);
+}
+
+.skip-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 /* ── Episode progress ── */
