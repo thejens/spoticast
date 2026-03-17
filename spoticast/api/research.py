@@ -27,7 +27,7 @@ from spoticast.config import settings
 logger = logging.getLogger(__name__)
 
 _CACHE_PREFIX = "research"
-_MAX_CONCURRENT = 4
+_MAX_CONCURRENT = 10
 
 _client_kwargs: dict | None = None
 _SEARCH_TOOL = types.Tool(google_search=types.GoogleSearch())
@@ -268,6 +268,22 @@ async def _enrich_async(
         if album and (primary, album) not in seen_albums:
             seen_albums.add((primary, album))
             album_tasks.append((primary, album))
+
+    # Pre-warm origin cache for all unique primary artists in parallel.
+    # Each main research task calls _get_artist_origin, which counts against the
+    # semaphore — pre-fetching here means those calls become instant cache hits.
+    unique_primaries = {
+        artist_name for artist_name in artist_profiles
+    } | {
+        track["artist"].split(",")[0].strip() for track in tracks
+    }
+    origin_sem = asyncio.Semaphore(8)
+
+    async def _warm_origin(name: str) -> None:
+        async with origin_sem:
+            await _get_artist_origin(name)
+
+    await asyncio.gather(*(_warm_origin(n) for n in unique_primaries), return_exceptions=True)
 
     tasks: list[tuple[str, tuple]] = []
     for artist_name in artist_profiles:
