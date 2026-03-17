@@ -55,7 +55,15 @@ async def synthesize_dialogue(lines: list[dict]) -> bytes:
     # Collect the unique speaker names present in this dialogue block
     speakers_present = sorted({_VOICE_MAP[l["host"]][0] for l in lines if l["host"] in _VOICE_MAP})
     speaker_list = " and ".join(speakers_present)
-    prompt = f"TTS the following conversation between {speaker_list}:\n" + "\n".join(dialogue_parts)
+    # Style direction matters a lot for naturalness — without it the model defaults
+    # to a clean broadcast voice with long pauses and even pacing between speakers.
+    prompt = (
+        f"Two friends who love music, {speaker_list}, having a real conversation — "
+        f"fast-paced, casual, energetic. They talk like they know each other well: "
+        f"short gaps between turns, occasional slight overlap in energy, natural "
+        f"contractions and informal rhythm. NOT a polished radio broadcast.\n\n"
+        + "\n".join(dialogue_parts)
+    )
 
     speaker_voice_configs = [
         types.SpeakerVoiceConfig(

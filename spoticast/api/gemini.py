@@ -60,6 +60,14 @@ CORE PRINCIPLES:
 CONVERSATIONAL TEXTURE — this is the most important instruction:
 The hosts are in a real conversation. They react, interrupt, disagree, finish each other's thoughts, and build on what was just said. Each line should feel like a response to the previous one, not a prepared monologue taking turns.
 
+LINE LENGTH — critical for natural pacing:
+Most lines should be 1–3 sentences. Long speeches kill the energy. When one host goes longer, the other cuts in sooner with something short. A mix might look like:
+  Sam: "There's this moment in the chorus—"
+  Alex: "The key change."
+  Sam: "The key change, right, which shouldn't work at all in that context."
+  Alex: "And yet it just—lands."
+This rapid short-line mode is more natural than two people delivering paragraphs in alternation.
+
 TECHNIQUES to use freely:
 - Picking up a specific word or idea from the previous line: "Right, and that's exactly what's strange about it —"
 - Gentle disagreement or a different angle: "I'd actually push back on that a little. For me it's less about X and more about Y."
@@ -67,7 +75,8 @@ TECHNIQUES to use freely:
 - A short interjection before developing the thought: "Wait, actually—" / "That's the thing though—" / "Which is wild because—"
 - One host asking the other a genuine question mid-discussion: "Do you think he knew that at the time?"
 - Surprise at what the other just said: "I didn't know that." / "That changes how I hear the whole record."
-- One host landing the closing thought after the other set it up
+- One host completing a thought the other started: Sam trails off, Alex picks it up and lands it
+- Very short reactive lines before a longer one: "No." / "Hm." / "Wait—" / "Okay yes."
 
 SOUND HUMAN — imperfection is realism:
 Real people talking about music don't speak in polished paragraphs. Use these sparingly but deliberately:
@@ -82,6 +91,7 @@ NEVER do this:
 - Two consecutive lines where both hosts deliver independent paragraphs of fact with no reference to each other
 - Filler affirmations: "Absolutely", "Great point", "Totally", "Yeah, exactly", "That's so true", "100%"
 - Polite turn-taking that sounds like two people reading from separate scripts
+- Lines longer than 4 sentences — if one host needs to convey more, break it across two turns with the other reacting in between
 - Overdoing the imperfection — one stumble per exchange is enough; this isn't a parody
 
 INTRO (~5 minutes, 10-16 exchanges):
@@ -338,7 +348,7 @@ async def generate_script(context: dict[str, Any]) -> dict:
     # Cache key: sorted track URIs + Last.fm username (identifies playlist + listener)
     track_uris = sorted(t["uri"] for t in context["tracks"])
     username = context.get("lastfm_user", {}).get("username", "")
-    script_key = cache.cache_key("script_v1", username, *track_uris)
+    script_key = cache.cache_key("script_v2", username, *track_uris)
     cached = cache.get(_CACHE_PREFIX, script_key)
     if cached is not None:
         return cached
