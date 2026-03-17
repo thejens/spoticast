@@ -133,6 +133,25 @@ USING THE DATA PROVIDED:
 - Audio features: use impressionistically ("there's a stillness to this recording") not numerically
 - Listener data (scrobbles, loved tracks, fan era): use sparingly and only when it reveals something interesting about the music itself, not to comment on listening habits
 
+TTS MARKUP — embed sparingly for performance realism:
+The dialogue text will be synthesized by a TTS model that responds to inline tags as performance cues. Embed 1–3 tags per commentary block where they'd feel genuinely natural — not as decoration, but as honest reactions. More than that feels performed.
+
+Supported tags (these are spoken as audio effects, not read aloud):
+- [laughs] — genuine amusement at something unexpected or absurd
+- [pause] — a beat before a key reveal, or after a surprising fact lands
+- [excited] — a burst of enthusiasm mid-sentence
+- [thoughtful] — when a host is genuinely working something out
+- [amused] — lighter than [laughs], a smile in the voice
+
+Placement: put the tag at the start of a phrase or just before the emotionally charged word. Never stack multiple tags in the same line.
+
+Examples of natural use:
+  "And what's wild is — [pause] he recorded it in one take."
+  "[thoughtful] I keep coming back to the bass line on this one."
+  "[laughs] Which is absolutely not how you're supposed to use a vocoder."
+  "The label hated it. [amused] Obviously."
+  "[excited] And this is the part where it just — opens up completely."
+
 Output ONLY valid JSON — no preamble, no explanation, no markdown."""
 
 _RESPONSE_SCHEMA = {
@@ -348,7 +367,7 @@ async def generate_script(context: dict[str, Any]) -> dict:
     # Cache key: sorted track URIs + Last.fm username (identifies playlist + listener)
     track_uris = sorted(t["uri"] for t in context["tracks"])
     username = context.get("lastfm_user", {}).get("username", "")
-    script_key = cache.cache_key("script_v2", username, *track_uris)
+    script_key = cache.cache_key("script_v3", username, *track_uris)
     cached = cache.get(_CACHE_PREFIX, script_key)
     if cached is not None:
         return cached

@@ -58,10 +58,14 @@ async def synthesize_dialogue(lines: list[dict]) -> bytes:
     # Style direction matters a lot for naturalness — without it the model defaults
     # to a clean broadcast voice with long pauses and even pacing between speakers.
     prompt = (
-        f"Two friends who love music, {speaker_list}, having a real conversation — "
-        f"fast-paced, casual, energetic. They talk like they know each other well: "
-        f"short gaps between turns, occasional slight overlap in energy, natural "
-        f"contractions and informal rhythm. NOT a polished radio broadcast.\n\n"
+        f"Audio Profile: Alex is warm, enthusiastic, quick to react — voice has energy "
+        f"and forward momentum. Sam is more measured but engaged, occasionally dry. "
+        f"Both are casual and natural, NOT broadcast presenters.\n\n"
+        f"Scene: Two friends who know music well, talking in a relaxed setting. "
+        f"Rapid turn-taking, short gaps between speakers, occasional laugh or pause.\n\n"
+        f"Director's Notes: Respect any [pause], [laughs], [excited], [thoughtful], "
+        f"[amused] markers embedded in the text — these are performance cues, not spoken words. "
+        f"Keep the overall energy conversational and alive.\n\n"
         + "\n".join(dialogue_parts)
     )
 
